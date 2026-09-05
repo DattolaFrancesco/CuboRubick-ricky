@@ -24,3 +24,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Galleria "Esplora": entrata/uscita dei riquadri con fade + scale scaglionato
+   (lo scaglionamento è dato da animation-delay inline, per indice). */
+@keyframes gallery-tile-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes gallery-tile-out {
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}

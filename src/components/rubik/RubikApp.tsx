@@ -47,19 +47,16 @@ export function RubikApp() {
   const cubeViewRef = useRef<CubeView | null>(null);
   const [gallery, setGallery] = useState<GalleryTile[] | null>(null);
 
-  // "Esplora": chiede al cubo la posizione a schermo di ogni sticker fotografico
-  // così la galleria può farli "volare" da lì (vedi Gallery). Mette in pausa il
-  // loop di rendering del cubo: è coperto dalla galleria, tanto vale non
-  // sprecare GPU per disegnarlo.
+  // "Esplora": apre la galleria a tutto schermo con tutte le foto delle facce.
+  // Mette in pausa il loop di rendering del cubo: è coperto dalla galleria,
+  // tanto vale non sprecare GPU per disegnarlo.
   const openGallery = () => {
     const view = cubeViewRef.current;
     if (!view || busy || gallery) return;
-    const rects = view.getStickerScreenRects();
     const tiles: GalleryTile[] = [];
     for (const [id, url] of Object.entries(faceTex.textures)) {
-      const from = rects[id];
       const full = faceTex.getFullUrl(id) ?? url;
-      if (full && from) tiles.push({ id, url: full, from });
+      if (full) tiles.push({ id, url: full });
     }
     if (tiles.length === 0) return;
     view.setPaused(true);

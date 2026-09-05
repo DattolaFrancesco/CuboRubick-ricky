@@ -1,13 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export interface GalleryTile {
   id: string;
   url: string;
-  /** posizione/dimensione (px, viewport) dello sticker sul cubo al momento dell'apertura */
-  from: { x: number; y: number; width: number; height: number };
 }
 
 interface GalleryProps {
@@ -15,71 +13,27 @@ interface GalleryProps {
   onClose: () => void;
 }
 
-const ENTER_MS = 650;
-const EXIT_MS = 420;
-const STAGGER_MS = 9;
+const ENTER_MS = 340;
+const ENTER_STAGGER_MS = 8;
+const EXIT_MS = 200;
+const EXIT_STAGGER_MS = 4;
 
 /**
- * Galleria a tutto schermo delle foto del cubo, con animazione FLIP:
- * ogni riquadro nasce già nella sua posizione di griglia (flusso normale),
- * gli si applica subito una `transform` che lo riporta visivamente al punto
- * in cui si trovava sul cubo (`from`), poi la si toglie per farlo "volare"
- * verso il proprio posto. Anima solo `transform`/`opacity` (compositor),
- * mai `width`/`height`/`left`/`top`: fluido anche con ~50 elementi.
+ * Galleria a tutto schermo delle foto del cubo. Ogni riquadro entra (e esce)
+ * con un fade + scale scaglionato, gestito da un'animazione CSS con
+ * `animation-delay` per indice: niente "volo" dal cubo, che con 54 foto tutte
+ * in partenza dallo stesso punto produceva un groviglio sovrapposto durante la
+ * transizione (peggiorato online dalle foto ancora in caricamento).
  */
 export function Gallery({ tiles, onClose }: GalleryProps) {
   const [closing, setClosing] = useState(false);
   const [lightbox, setLightbox] = useState<GalleryTile | null>(null);
-  const tileRefs = useRef(new Map<string, HTMLDivElement>());
-
-  useEffect(() => {
-    const els = tileRefs.current;
-    for (const tile of tiles) {
-      const el = els.get(tile.id);
-      if (!el) continue;
-      const target = el.getBoundingClientRect();
-      const dx = tile.from.x + tile.from.width / 2 - (target.x + target.width / 2);
-      const dy = tile.from.y + tile.from.height / 2 - (target.y + target.height / 2);
-      const scale = Math.max(0.08, tile.from.width / target.width);
-      el.style.transition = "none";
-      el.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
-    }
-
-    // forza il reflow: fa "vedere" sincronamente al browser lo stato di
-    // partenza prima di far scattare la transizione verso la griglia. Un
-    // doppio requestAnimationFrame faceva lo stesso lavoro ma può restare
-    // bloccato su mobile (tab in background, jank per il caricamento di 54
-    // foto, cubo appena messo in pausa), lasciando le foto ferme per sempre
-    // nella posizione di partenza sul cubo invece di animarle verso la griglia.
-    document.body.getBoundingClientRect();
-
-    let i = 0;
-    for (const tile of tiles) {
-      const el = els.get(tile.id);
-      if (!el) continue;
-      el.style.transition = `transform ${ENTER_MS}ms cubic-bezier(.22,1,.36,1) ${i * STAGGER_MS}ms`;
-      el.style.transform = "";
-      i += 1;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const handleClose = () => {
     if (closing) return;
     setClosing(true);
     setLightbox(null);
-    for (const tile of tiles) {
-      const el = tileRefs.current.get(tile.id);
-      if (!el) continue;
-      const current = el.getBoundingClientRect();
-      const dx = tile.from.x + tile.from.width / 2 - (current.x + current.width / 2);
-      const dy = tile.from.y + tile.from.height / 2 - (current.y + current.height / 2);
-      const scale = Math.max(0.08, tile.from.width / current.width);
-      el.style.transition = `transform ${EXIT_MS}ms cubic-bezier(.4,0,.7,.4), opacity ${EXIT_MS}ms ease`;
-      el.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
-      el.style.opacity = "0";
-    }
-    window.setTimeout(onClose, EXIT_MS + 30);
+    window.setTimeout(onClose, EXIT_MS + tiles.length * EXIT_STAGGER_MS + 60);
   };
 
   return (
@@ -96,14 +50,15 @@ export function Gallery({ tiles, onClose }: GalleryProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-4 sm:gap-4 sm:p-10 md:grid-cols-5 lg:grid-cols-6">
-        {tiles.map((tile) => (
+        {tiles.map((tile, i) => (
           <div
             key={tile.id}
-            ref={(el) => {
-              if (el) tileRefs.current.set(tile.id, el);
-              else tileRefs.current.delete(tile.id);
+            style={{
+              animation: closing
+                ? `gallery-tile-out ${EXIT_MS}ms ease ${i * EXIT_STAGGER_MS}ms both`
+                : `gallery-tile-in ${ENTER_MS}ms cubic-bezier(0.22, 1, 0.36, 1) ${i * ENTER_STAGGER_MS}ms both`,
             }}
-            className="relative aspect-square cursor-zoom-in overflow-hidden rounded-lg bg-black/5 [will-change:transform]"
+            className="relative aspect-square cursor-zoom-in overflow-hidden rounded-lg bg-black/5"
             onClick={() => !closing && setLightbox(tile)}
           >
             <Image
