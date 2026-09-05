@@ -14,6 +14,8 @@ interface Cube3DProps {
   onMoveComplete: (move: Move) => void;
   onDragMove: (move: Move) => void;
   dragEnabled: boolean;
+  /** avanzamento reale del caricamento foto (quante pronte sul cubo, su quante totali) */
+  onTextureProgress?: (loaded: number, total: number) => void;
 }
 
 /**
@@ -35,6 +37,7 @@ export function Cube3D({
   onMoveComplete,
   onDragMove,
   dragEnabled,
+  onTextureProgress,
 }: Cube3DProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<CubeView | null>(null);
@@ -44,6 +47,7 @@ export function Cube3D({
   const onDragMoveRef = useRef(onDragMove);
   const dragEnabledRef = useRef(dragEnabled);
   const onMoveCompleteRef = useRef(onMoveComplete);
+  const onTextureProgressRef = useRef(onTextureProgress);
 
   // mantiene i ref specchio allineati a ogni render (senza scriverli in render)
   useEffect(() => {
@@ -52,6 +56,7 @@ export function Cube3D({
     onDragMoveRef.current = onDragMove;
     dragEnabledRef.current = dragEnabled;
     onMoveCompleteRef.current = onMoveComplete;
+    onTextureProgressRef.current = onTextureProgress;
   });
 
   // crea la vista Three.js una volta sola
@@ -63,6 +68,7 @@ export function Cube3D({
       onDragMove: (m) => onDragMoveRef.current(m),
       getCube: () => cubeRef.current,
       isDragEnabled: () => dragEnabledRef.current,
+      onTextureProgress: (loaded, total) => onTextureProgressRef.current?.(loaded, total),
     });
     view.syncTo(cubeRef.current);
     view.applyTextures(texturesRef.current);

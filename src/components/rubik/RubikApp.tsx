@@ -1,26 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { moveToString } from "@/lib/cube/moves";
 import type { FaceId } from "@/lib/cube/types";
-import { Controls } from "./Controls";
-import { FaceEditor } from "./FaceEditor";
-import { Toolbar } from "./Toolbar";
+import { LoadingScreen } from "./LoadingScreen";
 import { useFaceTextures } from "./useFaceTextures";
 import { useRubikController } from "./useRubikController";
 
 // Il canvas Three.js non deve essere renderizzato lato server (usa WebGL / window).
 const Cube3D = dynamic(() => import("./Cube3D").then((m) => m.Cube3D), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-full items-center justify-center text-sm text-white/40">
-      Caricamento scena 3D…
-    </div>
-  ),
 });
-
-type Tab = "mosse" | "personalizza";
 
 const KEY_TO_FACE: Record<string, FaceId> = {
   u: "U",
@@ -33,28 +23,24 @@ const KEY_TO_FACE: Record<string, FaceId> = {
 
 /**
  * Componente radice: possiede il controller del cubo (stato logico + coda +
- * animazione) e compone il layout. La scena 3D riceve lo stato e notifica
- * indietro sia il termine di un'animazione sia le mosse nate da trascinamento.
+ * animazione) e compone l'impaginato "poster". La logica di mosse/drag/orbita
+ * vive interamente in `CubeView` / `useRubikController`: qui solo layout.
  */
 export function RubikApp() {
   const rubik = useRubikController();
   const faceTex = useFaceTextures();
   const { enqueue } = rubik;
-  const [tab, setTab] = useState<Tab>("mosse");
-  const historyRef = useRef<HTMLOListElement>(null);
-
-  // il cubo è "occupato" quando anima/ha una coda oppure sta calcolando la soluzione
   const busy = !rubik.idle;
-  const solvingRef = useRef(rubik.solving);
-  useEffect(() => {
-    solvingRef.current = rubik.solving;
-  });
+  // avanzamento reale: quante foto sono già decodificate e applicate sul cubo
+  // (non solo scaricate). Arriva a 1 esattamente quando il cubo è pronto.
+  const [textureProgress, setTextureProgress] = useState({ loaded: 0, total: 0 });
+  const ready =
+    textureProgress.total > 0 && textureProgress.loaded >= textureProgress.total;
 
   // scorciatoie da tastiera: U D L R F B (+ Shift = antiorario)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (solvingRef.current) return; // niente input manuale durante il calcolo
       const target = e.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
       const face = KEY_TO_FACE[e.key.toLowerCase()];
@@ -66,129 +52,82 @@ export function RubikApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, [enqueue]);
 
-  // tiene la cronologia scrollata in fondo
-  useEffect(() => {
-    const el = historyRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [rubik.history.length]);
-
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-4 p-4 lg:p-6">
-      <header className="flex items-baseline justify-between">
-        <h1 className="text-lg font-semibold text-white sm:text-xl">Cubo di Rubik 3D</h1>
-        <span className="text-xs text-white/40">step 4 · foto sulle facce</span>
-      </header>
+    <div className="relative min-h-screen w-full overflow-hidden bg-[#f1ede2] text-[#141414]">
+      {/* Scena 3D a tutto schermo (sfondo trasparente, orbita con il trascinamento) */}
+      <div className="absolute inset-0">
+        <Cube3D
+          cube={rubik.cube}
+          animatingMove={rubik.animatingMove}
+          turnId={rubik.turnId}
+          textures={faceTex.textures}
+          onMoveComplete={rubik.completeMove}
+          onDragMove={(m) => rubik.enqueue(m)}
+          dragEnabled={rubik.animatingMove === null}
+          onTextureProgress={(loaded, total) => setTextureProgress({ loaded, total })}
+        />
+      </div>
 
-      <div className="grid flex-1 gap-4 lg:grid-cols-[1fr_360px]">
-        {/* Scena 3D */}
-        <div className="relative min-h-[420px] overflow-hidden rounded-2xl border border-white/10 bg-[#0b0f17] lg:min-h-0">
-          <Cube3D
-            cube={rubik.cube}
-            animatingMove={rubik.animatingMove}
-            turnId={rubik.turnId}
-            textures={faceTex.textures}
-            onMoveComplete={rubik.completeMove}
-            onDragMove={(m) => rubik.enqueue(m)}
-            dragEnabled={rubik.animatingMove === null}
-          />
-          <div className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-black/40 px-2 py-1 text-[11px] text-white/50">
-            Trascina per orbitare ·{" "}
-            <kbd className="rounded bg-white/15 px-1">Shift</kbd> + trascina una
-            faccia per ruotare lo strato
-          </div>
+      {/* Testata — titolo a sinistra, marchi a destra */}
+      <header className="pointer-events-none absolute inset-x-6 top-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-6 sm:inset-x-10 sm:top-10">
+        <div>
+          <h1 className="text-4xl font-bold leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
+            Cubo <span className="align-middle text-[0.55em]">✦</span>
+            <br />
+            Fotografico
+          </h1>
+          <p className="mt-2 text-2xl font-semibold text-[#141414]/80 sm:text-4xl">
+            Riccardo Battipede
+          </p>
         </div>
 
-        {/* Pannello laterale */}
-        <aside className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <Toolbar
-            onScramble={rubik.scramble}
-            onSolve={rubik.solve}
-            onReset={rubik.reset}
-            busy={busy}
-            solving={rubik.solving}
-            solved={rubik.solved}
+        <div className="flex items-center gap-5 sm:gap-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/laba.svg"
+            alt="LABA — Libera Accademia Belle Arti"
+            className="h-9 w-auto sm:h-12"
           />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/fotografia.svg" alt="Fotografia" className="h-14 w-auto sm:h-20" />
+        </div>
+      </header>
 
-          <div className="grid grid-cols-2 gap-2 text-center text-sm">
-            <div className="rounded-lg bg-white/5 p-2">
-              <div className="text-xl font-semibold text-white">{rubik.history.length}</div>
-              <div className="text-[11px] text-white/40">
-                mosse
-                {rubik.solving
-                  ? " · calcolo…"
-                  : rubik.pending > 0
-                    ? ` (+${rubik.pending} in coda)`
-                    : ""}
-              </div>
-            </div>
-            <div className="rounded-lg bg-white/5 p-2">
-              <div
-                className={`text-xl font-semibold ${
-                  rubik.solved ? "text-emerald-400" : "text-amber-400"
-                }`}
-              >
-                {rubik.solved ? "risolto" : "mescolato"}
-              </div>
-              <div className="text-[11px] text-white/40">stato</div>
-            </div>
-          </div>
-
-          <div className="flex gap-1 rounded-lg bg-black/30 p-1">
-            {(["mosse", "personalizza"] as Tab[]).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium capitalize transition ${
-                  tab === t ? "bg-white/10 text-white" : "text-white/50 hover:text-white/80"
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {tab === "mosse" ? (
-              <Controls onMove={(m) => rubik.enqueue(m)} disabled={rubik.solving} />
-            ) : (
-              <FaceEditor tex={faceTex} />
-            )}
-          </div>
-
-          <div>
-            <div className="mb-1 flex items-baseline justify-between">
-              <h3 className="text-sm font-semibold text-white/80">Cronologia</h3>
-              {rubik.history.length > 0 && (
-                <button
-                  type="button"
-                  onClick={rubik.reset}
-                  className="text-[11px] text-white/40 underline-offset-2 hover:underline"
-                >
-                  azzera
-                </button>
-              )}
-            </div>
-            {rubik.history.length === 0 ? (
-              <p className="text-xs text-white/30">Nessuna mossa ancora.</p>
-            ) : (
-              <ol
-                ref={historyRef}
-                className="flex max-h-24 flex-wrap gap-1 overflow-y-auto text-xs"
-              >
-                {rubik.history.map((m, i) => (
-                  <li
-                    key={i}
-                    className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white/80"
-                  >
-                    {moveToString(m)}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-        </aside>
+      {/* Azioni — in basso a destra */}
+      <div className="absolute bottom-6 right-6 flex flex-wrap justify-end gap-2 sm:bottom-10 sm:right-10 sm:gap-3">
+        <button
+          type="button"
+          onClick={rubik.solve}
+          disabled={busy || rubik.solved}
+          className="rounded-xl bg-[#141414] px-6 py-3 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30"
+        >
+          {rubik.solving ? "Calcolo…" : "Risolvi"}
+        </button>
+        <button
+          type="button"
+          onClick={rubik.reset}
+          disabled={rubik.solving}
+          className="rounded-xl bg-[#141414] px-6 py-3 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30"
+        >
+          Esplora
+        </button>
+        <button
+          type="button"
+          onClick={rubik.scramble}
+          disabled={busy}
+          className="rounded-xl bg-[#141414] px-6 py-3 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30"
+        >
+          Mescola
+        </button>
       </div>
+
+      {!ready && (
+        <LoadingScreen
+          progress={
+            textureProgress.total > 0 ? textureProgress.loaded / textureProgress.total : 0
+          }
+        />
+      )}
     </div>
   );
 }

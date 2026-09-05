@@ -48,6 +48,9 @@ interface Callbacks {
   getCube: () => CubeState;
   /** se false, il trascinamento degli strati è disabilitato (es. durante un'anim.) */
   isDragEnabled: () => boolean;
+  /** avanzamento reale del caricamento foto: quante sono pronte (decodificate e
+   * applicate sul cubo, non solo scaricate) sul totale da caricare */
+  onTextureProgress?: (loaded: number, total: number) => void;
 }
 
 interface ActiveAnim {
@@ -79,6 +82,18 @@ export class CubeView {
   private textureLoader = new THREE.TextureLoader();
   /** texture attualmente applicate: id sticker -> { url, texture } */
   private stickerTextures = new Map<string, { url: string; texture: THREE.Texture }>();
+  /**
+   * Conteggio dei caricamenti foto, a livello di istanza (non per singola
+   * chiamata ad `applyTextures`): `applyTextures` può essere invocato più
+   * volte di seguito (mount + effetto su `textures`) e la seconda chiamata
+   * non vede nulla di "nuovo" da caricare, ma le foto della prima potrebbero
+   * non essere ancora arrivate. `total` cresce solo per i caricamenti
+   * effettivamente nuovi, quindi la frazione `completed/total` è il vero
+   * avanzamento (raggiunge 1 esattamente quando il cubo è pronto sullo schermo,
+   * non solo quando i byte sono scaricati).
+   */
+  private totalTextureLoads = 0;
+  private completedTextureLoads = 0;
 
   private raycaster = new THREE.Raycaster();
   private pointer = new THREE.Vector2();
@@ -115,12 +130,14 @@ export class CubeView {
     this.camera = new THREE.PerspectiveCamera(42, w / h || 1, 0.1, 100);
     this.camera.position.set(4.5, 4.5, 6);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(w, h);
+    this.renderer.setClearAlpha(0);
     container.appendChild(this.renderer.domElement);
 
-    this.scene.background = new THREE.Color("#0b0f17");
+    // sfondo trasparente: il cubo vive sopra la "carta" chiara della pagina
+    this.scene.background = null;
     this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const key = new THREE.DirectionalLight(0xffffff, 1.1);
     key.position.set(6, 8, 4);
@@ -249,9 +266,15 @@ export class CubeView {
       const current = this.stickerTextures.get(id);
 
       if (url) {
-        if (current?.url === url) continue; // nessun cambiamento
+        if (current?.url === url) continue; // già assegnata (in corso o pronta)
         current?.texture.dispose();
-        const texture = this.textureLoader.load(url);
+
+        this.totalTextureLoads += 1;
+        const onSettled = () => {
+          this.completedTextureLoads += 1;
+          this.cb.onTextureProgress?.(this.completedTextureLoads, this.totalTextureLoads);
+        };
+        const texture = this.textureLoader.load(url, onSettled, undefined, onSettled);
         texture.colorSpace = THREE.SRGBColorSpace;
         texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
         mat.map = texture;
@@ -266,6 +289,10 @@ export class CubeView {
         mat.needsUpdate = true;
       }
     }
+
+    // riporta subito l'avanzamento aggiornato, anche se questa chiamata non ha
+    // aggiunto nulla di nuovo da caricare (es. rientra fra quelle già pronte)
+    this.cb.onTextureProgress?.(this.completedTextureLoads, this.totalTextureLoads);
   }
 
   // ---------------------------------------------------------------------------
