@@ -24,9 +24,9 @@ const KEY_TO_FACE: Record<string, FaceId> = {
 };
 
 const ACTION_BTN_CLASS =
-  "rounded-xl bg-[#141414] px-4 py-2.5 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30 sm:px-6 sm:py-3";
+  "rounded-lg bg-[#141414] px-3 py-2 text-xs font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30 sm:rounded-xl sm:px-6 sm:py-3 sm:text-sm";
 const LOCK_BTN_ACTIVE_CLASS =
-  "rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#141414] ring-2 ring-[#141414] transition sm:px-6 sm:py-3";
+  "rounded-lg bg-white px-3 py-2 text-xs font-semibold text-[#141414] ring-2 ring-[#141414] transition sm:rounded-xl sm:px-6 sm:py-3 sm:text-sm";
 
 /**
  * Componente radice: possiede il controller del cubo (stato logico + coda +
@@ -139,43 +139,37 @@ export function RubikApp() {
         </div>
       </header>
 
-      {/* Azioni — centrate in basso su mobile, in basso a destra da tablet in su.
-          "Esplora" è nella riga sotto e si allarga per pareggiare la larghezza
-          dei 3 bottoni sopra (self-start sulla riga + stretch di default sul
-          figlio diretto della colonna, niente larghezze calcolate a mano). */}
-      <div className="absolute inset-x-0 bottom-4 flex justify-center px-4 sm:inset-x-auto sm:right-10 sm:bottom-10 sm:justify-end sm:px-0">
-        <div className="flex flex-col gap-2 sm:gap-3">
-          <div className="flex shrink-0 self-start gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={rubik.solve}
-              disabled={busy || rubik.solved}
-              className={ACTION_BTN_CLASS}
-            >
-              {rubik.solving ? "Calcolo…" : "Risolvi"}
-            </button>
-            <button
-              type="button"
-              onClick={toggleLayerLock}
-              aria-pressed={layerLock}
-              title="Blocca l'orbita per ruotare gli strati col dito, come Shift su desktop"
-              className={layerLock ? LOCK_BTN_ACTIVE_CLASS : ACTION_BTN_CLASS}
-            >
-              {layerLock ? "Sblocca" : "Blocca"}
-            </button>
-            <button
-              type="button"
-              onClick={rubik.scramble}
-              disabled={busy}
-              className={ACTION_BTN_CLASS}
-            >
-              Mescola
-            </button>
-          </div>
-          <button type="button" onClick={openGallery} disabled={busy} className={ACTION_BTN_CLASS}>
-            Esplora
-          </button>
-        </div>
+      {/* Azioni — tutti e 4 i tasti sulla stessa riga, centrati in basso su
+          mobile, in basso a destra da tablet in su. */}
+      <div className="absolute inset-x-0 bottom-4 flex justify-center gap-1.5 px-3 sm:inset-x-auto sm:right-10 sm:bottom-10 sm:justify-end sm:gap-3 sm:px-0">
+        <button
+          type="button"
+          onClick={rubik.solve}
+          disabled={busy || rubik.solved}
+          className={ACTION_BTN_CLASS}
+        >
+          {rubik.solving ? "Calcolo…" : "Risolvi"}
+        </button>
+        <button
+          type="button"
+          onClick={toggleLayerLock}
+          aria-pressed={layerLock}
+          title="Blocca l'orbita per ruotare gli strati col dito, come Shift su desktop"
+          className={layerLock ? LOCK_BTN_ACTIVE_CLASS : ACTION_BTN_CLASS}
+        >
+          {layerLock ? "Sblocca" : "Blocca"}
+        </button>
+        <button
+          type="button"
+          onClick={rubik.scramble}
+          disabled={busy}
+          className={ACTION_BTN_CLASS}
+        >
+          Mescola
+        </button>
+        <button type="button" onClick={openGallery} disabled={busy} className={ACTION_BTN_CLASS}>
+          Esplora
+        </button>
       </div>
 
       {!ready && (
