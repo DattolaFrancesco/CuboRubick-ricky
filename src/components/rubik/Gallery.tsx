@@ -45,25 +45,22 @@ export function Gallery({ tiles, onClose }: GalleryProps) {
       el.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
     }
 
-    // doppio rAF: lascia dipingere lo stato di partenza prima di far scattare
-    // la transizione, altrimenti il browser la salta (nessun cambiamento da animare)
-    let raf2 = 0;
-    const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        let i = 0;
-        for (const tile of tiles) {
-          const el = els.get(tile.id);
-          if (!el) continue;
-          el.style.transition = `transform ${ENTER_MS}ms cubic-bezier(.22,1,.36,1) ${i * STAGGER_MS}ms`;
-          el.style.transform = "";
-          i += 1;
-        }
-      });
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
+    // forza il reflow: fa "vedere" sincronamente al browser lo stato di
+    // partenza prima di far scattare la transizione verso la griglia. Un
+    // doppio requestAnimationFrame faceva lo stesso lavoro ma può restare
+    // bloccato su mobile (tab in background, jank per il caricamento di 54
+    // foto, cubo appena messo in pausa), lasciando le foto ferme per sempre
+    // nella posizione di partenza sul cubo invece di animarle verso la griglia.
+    document.body.getBoundingClientRect();
+
+    let i = 0;
+    for (const tile of tiles) {
+      const el = els.get(tile.id);
+      if (!el) continue;
+      el.style.transition = `transform ${ENTER_MS}ms cubic-bezier(.22,1,.36,1) ${i * STAGGER_MS}ms`;
+      el.style.transform = "";
+      i += 1;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
