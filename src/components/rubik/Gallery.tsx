@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface GalleryTile {
   id: string;
@@ -79,6 +79,8 @@ export function Gallery({ tiles, onClose }: GalleryProps) {
 
 function Lightbox({ tile, onClose }: { tile: GalleryTile; onClose: () => void }) {
   const [visible, setVisible] = useState(false);
+  const [hiResLoaded, setHiResLoaded] = useState(false);
+  const hiResRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setVisible(true));
@@ -86,6 +88,10 @@ function Lightbox({ tile, onClose }: { tile: GalleryTile; onClose: () => void })
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
+    // se la versione piena è già in cache, `onLoad` può non scattare
+    if (hiResRef.current?.complete && hiResRef.current.naturalWidth > 0) {
+      setHiResLoaded(true);
+    }
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
@@ -105,7 +111,39 @@ function Lightbox({ tile, onClose }: { tile: GalleryTile; onClose: () => void })
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        <Image src={tile.url} alt="" fill sizes="92vw" className="object-contain" priority />
+        {/* anteprima sfocata: variante minuscola, si carica quasi subito e dà
+            un'idea della foto mentre scarica quella a piena risoluzione */}
+        <Image
+          src={tile.url}
+          alt=""
+          fill
+          sizes="64px"
+          priority
+          aria-hidden
+          className={`scale-110 object-contain blur-2xl transition-opacity duration-500 ${
+            hiResLoaded ? "opacity-0" : "opacity-100"
+          }`}
+        />
+        {/* immagine piena: compare in dissolvenza quando è pronta */}
+        <Image
+          ref={hiResRef}
+          src={tile.url}
+          alt=""
+          fill
+          sizes="92vw"
+          priority
+          onLoad={() => setHiResLoaded(true)}
+          onError={() => setHiResLoaded(true)}
+          className={`object-contain transition-opacity duration-500 ${
+            hiResLoaded ? "opacity-100" : "opacity-0"
+          }`}
+        />
+        {/* indicatore di caricamento finché la versione piena non è pronta */}
+        {!hiResLoaded && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          </div>
+        )}
       </div>
       <button
         type="button"
