@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,12 @@ export const metadata: Metadata = {
   title: "Cubo di Rubik 3D",
   description:
     "Cubo di Rubik 3D interattivo e risolvibile, con facce personalizzabili tramite foto.",
+};
+
+// tinge la UI del browser (status bar / barra URL su mobile) del crema della
+// pagina, così i bordi non restano bianchi
+export const viewport: Viewport = {
+  themeColor: "#f1ede2",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

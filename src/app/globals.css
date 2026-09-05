@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* L'app è un "poster" a tema fisso chiaro: sfondo crema ovunque, anche
+     dietro la status bar / le safe area su mobile (altrimenti lì si vede
+     il bianco del browser). */
+  --background: #f1ede2;
+  --foreground: #141414;
 }
 
 @theme inline {
@@ -12,15 +15,13 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background-color: var(--background);
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }

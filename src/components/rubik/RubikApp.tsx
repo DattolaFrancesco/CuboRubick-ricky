@@ -96,7 +96,7 @@ export function RubikApp() {
   }, [enqueue]);
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#f1ede2] text-[#141414]">
+    <div className="relative min-h-dvh w-full overflow-hidden bg-[#f1ede2] text-[#141414]">
       {/* Scena 3D a tutto schermo (sfondo trasparente, orbita con il trascinamento) */}
       <div className="absolute inset-0">
         <Cube3D
@@ -140,8 +140,9 @@ export function RubikApp() {
       </header>
 
       {/* Azioni — tutti e 4 i tasti sulla stessa riga, centrati in basso su
-          mobile, in basso a destra da tablet in su. */}
-      <div className="absolute inset-x-0 bottom-4 flex justify-center gap-1.5 px-3 sm:inset-x-auto sm:right-10 sm:bottom-10 sm:justify-end sm:gap-3 sm:px-0">
+          mobile, in basso a destra da tablet in su. Distanza dal fondo che
+          tiene conto della safe area (home indicator / barra URL su iOS). */}
+      <div className="absolute inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1.5rem)] flex justify-center gap-1.5 px-3 sm:inset-x-auto sm:right-10 sm:bottom-10 sm:justify-end sm:gap-3 sm:px-0">
         <button
           type="button"
           onClick={rubik.solve}
