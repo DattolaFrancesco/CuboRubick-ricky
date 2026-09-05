@@ -23,6 +23,11 @@ const KEY_TO_FACE: Record<string, FaceId> = {
   b: "B",
 };
 
+const ACTION_BTN_CLASS =
+  "rounded-xl bg-[#141414] px-4 py-2.5 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30 sm:px-6 sm:py-3";
+const LOCK_BTN_ACTIVE_CLASS =
+  "rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-[#141414] ring-2 ring-[#141414] transition sm:px-6 sm:py-3";
+
 /**
  * Componente radice: possiede il controller del cubo (stato logico + coda +
  * animazione) e compone l'impaginato "poster". La logica di mosse/drag/orbita
@@ -65,6 +70,18 @@ export function RubikApp() {
     cubeViewRef.current?.setPaused(false);
   };
 
+  // Blocco "Shift" da bottone: su touch non c'è un tasto Shift fisico, quindi
+  // finché è attivo il trascinamento ruota sempre uno strato (stessa funzione
+  // dello Shift tenuto premuto su desktop) invece di orbitare la vista.
+  const [layerLock, setLayerLock] = useState(false);
+  const toggleLayerLock = () => {
+    setLayerLock((prev) => {
+      const next = !prev;
+      cubeViewRef.current?.setShiftLock(next);
+      return next;
+    });
+  };
+
   // scorciatoie da tastiera: U D L R F B (+ Shift = antiorario)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -99,57 +116,68 @@ export function RubikApp() {
         />
       </div>
 
-      {/* Testata — titolo a sinistra, marchi a destra */}
-      <header className="pointer-events-none absolute inset-x-6 top-6 flex flex-wrap items-start justify-between gap-x-8 gap-y-6 sm:inset-x-10 sm:top-10">
+      {/* Testata — titolo a sinistra, marchi a destra (più piccola su mobile) */}
+      <header className="pointer-events-none absolute inset-x-4 top-4 flex flex-wrap items-start justify-between gap-x-6 gap-y-4 sm:inset-x-10 sm:top-10 sm:gap-x-8 sm:gap-y-6">
         <div>
-          <h1 className="text-4xl font-bold leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
+          <h1 className="text-3xl font-bold leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
             Cubo <span className="align-middle text-[0.55em]">✦</span>
             <br />
             Fotografico
           </h1>
-          <p className="mt-2 text-2xl font-semibold text-[#141414]/80 sm:text-4xl">
+          <p className="mt-1 text-base font-semibold text-[#141414]/80 sm:mt-2 sm:text-4xl">
             Riccardo Battipede
           </p>
         </div>
 
-        <div className="flex items-center gap-5 sm:gap-8">
+        <div className="flex items-center gap-3 sm:gap-8">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/laba.svg"
             alt="LABA — Libera Accademia Belle Arti"
-            className="h-9 w-auto sm:h-12"
+            className="h-6 w-auto sm:h-12"
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/fotografia.svg" alt="Fotografia" className="h-14 w-auto sm:h-20" />
+          <img src="/fotografia.svg" alt="Fotografia" className="h-9 w-auto sm:h-20" />
         </div>
       </header>
 
-      {/* Azioni — in basso a destra */}
-      <div className="absolute bottom-6 right-6 flex flex-wrap justify-end gap-2 sm:bottom-10 sm:right-10 sm:gap-3">
-        <button
-          type="button"
-          onClick={rubik.solve}
-          disabled={busy || rubik.solved}
-          className="rounded-xl bg-[#141414] px-6 py-3 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30"
-        >
-          {rubik.solving ? "Calcolo…" : "Risolvi"}
-        </button>
-        <button
-          type="button"
-          onClick={openGallery}
-          disabled={busy}
-          className="rounded-xl bg-[#141414] px-6 py-3 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30"
-        >
-          Esplora
-        </button>
-        <button
-          type="button"
-          onClick={rubik.scramble}
-          disabled={busy}
-          className="rounded-xl bg-[#141414] px-6 py-3 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30"
-        >
-          Mescola
-        </button>
+      {/* Azioni — centrate in basso su mobile, in basso a destra da tablet in su.
+          "Esplora" è nella riga sotto e si allarga per pareggiare la larghezza
+          dei 3 bottoni sopra (self-start sulla riga + stretch di default sul
+          figlio diretto della colonna, niente larghezze calcolate a mano). */}
+      <div className="absolute inset-x-0 bottom-4 flex justify-center px-4 sm:inset-x-auto sm:right-10 sm:bottom-10 sm:justify-end sm:px-0">
+        <div className="flex flex-col gap-2 sm:gap-3">
+          <div className="flex shrink-0 self-start gap-2 sm:gap-3">
+            <button
+              type="button"
+              onClick={rubik.solve}
+              disabled={busy || rubik.solved}
+              className={ACTION_BTN_CLASS}
+            >
+              {rubik.solving ? "Calcolo…" : "Risolvi"}
+            </button>
+            <button
+              type="button"
+              onClick={toggleLayerLock}
+              aria-pressed={layerLock}
+              title="Blocca l'orbita per ruotare gli strati col dito, come Shift su desktop"
+              className={layerLock ? LOCK_BTN_ACTIVE_CLASS : ACTION_BTN_CLASS}
+            >
+              {layerLock ? "Sblocca" : "Blocca"}
+            </button>
+            <button
+              type="button"
+              onClick={rubik.scramble}
+              disabled={busy}
+              className={ACTION_BTN_CLASS}
+            >
+              Mescola
+            </button>
+          </div>
+          <button type="button" onClick={openGallery} disabled={busy} className={ACTION_BTN_CLASS}>
+            Esplora
+          </button>
+        </div>
       </div>
 
       {!ready && (

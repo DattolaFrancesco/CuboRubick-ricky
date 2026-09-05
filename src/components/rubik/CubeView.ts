@@ -25,6 +25,9 @@ import {
   easeInOutCubic,
 } from "./animation";
 
+/** Campo visivo verticale di base (schermi larghi: aspect ratio >= 1). */
+const BASE_FOV = 42;
+
 /**
  * Vista 3D del cubo realizzata con Three.js "puro" (senza react-three-fiber, che
  * non è compatibile con questa versione di Next/React).
@@ -109,6 +112,13 @@ export class CubeView {
    * premuto l'orbita è sospesa così il cubo non si muove.
    */
   private shiftHeld = false;
+  /**
+   * Blocco "Shift" attivabile da un bottone (touch/mobile, dove non c'è un
+   * tasto Shift fisico): se attivo, il trascinamento ruota sempre uno strato
+   * come se Shift fosse tenuto premuto. Indipendente da `shiftHeld` (che
+   * segue solo la tastiera): risincronizzare l'uno non azzera l'altro.
+   */
+  private shiftLock = false;
 
   // stato del trascinamento di uno strato
   private drag: {
@@ -127,8 +137,9 @@ export class CubeView {
 
     const { clientWidth: w, clientHeight: h } = container;
 
-    this.camera = new THREE.PerspectiveCamera(42, w / h || 1, 0.1, 100);
+    this.camera = new THREE.PerspectiveCamera(BASE_FOV, w / h || 1, 0.1, 100);
     this.camera.position.set(4.5, 4.5, 6);
+    this.applyCameraAspect(w, h);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -425,9 +436,24 @@ export class CubeView {
   private handleResize() {
     const { clientWidth: w, clientHeight: h } = this.container;
     if (w === 0 || h === 0) return;
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    this.applyCameraAspect(w, h);
     this.renderer.setSize(w, h);
+  }
+
+  /**
+   * Con un campo visivo verticale fisso, uno schermo stretto (mobile, in
+   * verticale) restringe il campo visivo ORIZZONTALE e fa apparire il cubo
+   * troppo grande in larghezza, al punto da sbordare. Quando l'aspect ratio
+   * scende sotto 1 allarghiamo il FOV in proporzione (con un tetto, per non
+   * deformare troppo la prospettiva): il cubo si rimpicciolisce e resta
+   * dentro lo schermo invece di uscirne.
+   */
+  private applyCameraAspect(w: number, h: number) {
+    const aspect = w / h || 1;
+    this.camera.aspect = aspect;
+    const fov = aspect < 1 ? BASE_FOV + (1 - aspect) * 34 : BASE_FOV;
+    this.camera.fov = Math.min(fov, 70);
+    this.camera.updateProjectionMatrix();
   }
 
   // ---------------------------------------------------------------------------
@@ -442,12 +468,13 @@ export class CubeView {
     );
   }
 
-  /** OrbitControls attivo solo se non si tiene Shift e non si sta trascinando uno strato. */
+  /** OrbitControls attivo solo se non si tiene/blocca Shift e non si sta trascinando uno strato. */
   private updateControlsEnabled() {
-    this.controls.enabled = !this.shiftHeld && !this.drag;
+    const shiftActive = this.shiftHeld || this.shiftLock;
+    this.controls.enabled = !shiftActive && !this.drag;
     this.renderer.domElement.style.cursor = this.drag
       ? "grabbing"
-      : this.shiftHeld
+      : shiftActive
         ? "grab"
         : "";
   }
@@ -464,13 +491,24 @@ export class CubeView {
     this.updateControlsEnabled();
   };
 
+  /** Attiva/disattiva da bottone il blocco "Shift" (controllo touch su mobile). */
+  setShiftLock(active: boolean) {
+    if (this.shiftLock === active) return;
+    this.shiftLock = active;
+    this.updateControlsEnabled();
+  }
+
   private onPointerDown = (ev: PointerEvent) => {
-    // Senza Shift: lascia orbitare la camera (OrbitControls, listener che segue
-    // sullo stesso elemento, in fase di bubble). Risincronizza qui il flag: se
-    // per qualche motivo era rimasto bloccato a true (es. il mouse è stato
-    // rilasciato prima del tasto), un click/drag senza Shift lo corregge subito
-    // invece di lasciare l'orbita disabilitata per sempre.
-    if (!ev.shiftKey) {
+    const shiftActive = ev.shiftKey || this.shiftHeld || this.shiftLock;
+
+    // Senza Shift (né tenuto né bloccato da bottone): lascia orbitare la
+    // camera (OrbitControls, listener che segue sullo stesso elemento, in
+    // fase di bubble). Risincronizza qui il flag da tastiera: se per qualche
+    // motivo era rimasto bloccato a true (es. il mouse è stato rilasciato
+    // prima del tasto), un click/drag senza Shift lo corregge subito invece
+    // di lasciare l'orbita disabilitata per sempre. Non tocca `shiftLock`:
+    // quello si disattiva solo dal bottone.
+    if (!shiftActive) {
       if (this.shiftHeld) {
         this.shiftHeld = false;
         this.updateControlsEnabled();
@@ -478,10 +516,11 @@ export class CubeView {
       return;
     }
 
-    // Con Shift: l'orbita non deve MAI partire. Fermiamo l'evento qui, in fase
-    // di capture, così il listener di OrbitControls non lo vede nemmeno.
+    // Con Shift attivo (tenuto o bloccato): l'orbita non deve MAI partire.
+    // Fermiamo l'evento qui, in fase di capture, così il listener di
+    // OrbitControls non lo vede nemmeno.
     ev.stopImmediatePropagation();
-    this.shiftHeld = true;
+    if (ev.shiftKey) this.shiftHeld = true;
     this.updateControlsEnabled();
     if (this.activeAnim || !this.cb.isDragEnabled()) return;
 
