@@ -296,6 +296,58 @@ export class CubeView {
   }
 
   // ---------------------------------------------------------------------------
+  // Galleria (vista esplosa degli sticker fotografici)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Posizione/dimensione a schermo (px, relativi al viewport) di ogni sticker,
+   * proiettando la sua posizione nel mondo attraverso la telecamera corrente.
+   * Sola lettura: serve solo da punto di partenza per l'animazione DOM/CSS
+   * "esplosione verso la galleria", gestita fuori da questa classe.
+   */
+  getStickerScreenRects(): Record<string, { x: number; y: number; width: number; height: number }> {
+    this.camera.updateMatrixWorld();
+    this.scene.updateMatrixWorld(true);
+    const rect = this.renderer.domElement.getBoundingClientRect();
+
+    const project = (v: THREE.Vector3) => {
+      const p = v.clone().project(this.camera);
+      return {
+        x: rect.left + (p.x * 0.5 + 0.5) * rect.width,
+        y: rect.top + (1 - (p.y * 0.5 + 0.5)) * rect.height,
+      };
+    };
+
+    const out: Record<string, { x: number; y: number; width: number; height: number }> = {};
+    const center = new THREE.Vector3();
+    const q = new THREE.Quaternion();
+    const half = STICKER_SIZE / 2;
+
+    for (const [id, mesh] of this.stickers) {
+      mesh.getWorldPosition(center);
+      mesh.getWorldQuaternion(q);
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q).multiplyScalar(half);
+      const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q).multiplyScalar(half);
+
+      const c = project(center);
+      const r = project(center.clone().add(right));
+      const u = project(center.clone().add(up));
+
+      const width = Math.max(4, Math.abs(r.x - c.x) * 2);
+      const height = Math.max(4, Math.abs(u.y - c.y) * 2);
+
+      out[id] = { x: c.x - width / 2, y: c.y - height / 2, width, height };
+    }
+    return out;
+  }
+
+  /** Ferma/riavvia il loop di rendering (usato quando il cubo è coperto, es. dalla galleria). */
+  setPaused(paused: boolean) {
+    if (this.disposed) return;
+    this.renderer.setAnimationLoop(paused ? null : this.tick);
+  }
+
+  // ---------------------------------------------------------------------------
   // Animazione di una mossa
   // ---------------------------------------------------------------------------
 

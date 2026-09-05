@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import type { FaceId } from "@/lib/cube/types";
+import type { CubeView } from "./CubeView";
+import { Gallery, type GalleryTile } from "./Gallery";
 import { LoadingScreen } from "./LoadingScreen";
 import { useFaceTextures } from "./useFaceTextures";
 import { useRubikController } from "./useRubikController";
@@ -37,6 +39,32 @@ export function RubikApp() {
   const ready =
     textureProgress.total > 0 && textureProgress.loaded >= textureProgress.total;
 
+  const cubeViewRef = useRef<CubeView | null>(null);
+  const [gallery, setGallery] = useState<GalleryTile[] | null>(null);
+
+  // "Esplora": chiede al cubo la posizione a schermo di ogni sticker fotografico
+  // così la galleria può farli "volare" da lì (vedi Gallery). Mette in pausa il
+  // loop di rendering del cubo: è coperto dalla galleria, tanto vale non
+  // sprecare GPU per disegnarlo.
+  const openGallery = () => {
+    const view = cubeViewRef.current;
+    if (!view || busy || gallery) return;
+    const rects = view.getStickerScreenRects();
+    const tiles: GalleryTile[] = [];
+    for (const [id, url] of Object.entries(faceTex.textures)) {
+      const from = rects[id];
+      if (url && from) tiles.push({ id, url, from });
+    }
+    if (tiles.length === 0) return;
+    view.setPaused(true);
+    setGallery(tiles);
+  };
+
+  const closeGallery = () => {
+    setGallery(null);
+    cubeViewRef.current?.setPaused(false);
+  };
+
   // scorciatoie da tastiera: U D L R F B (+ Shift = antiorario)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -65,6 +93,9 @@ export function RubikApp() {
           onDragMove={(m) => rubik.enqueue(m)}
           dragEnabled={rubik.animatingMove === null}
           onTextureProgress={(loaded, total) => setTextureProgress({ loaded, total })}
+          onReady={(view) => {
+            cubeViewRef.current = view;
+          }}
         />
       </div>
 
@@ -105,8 +136,8 @@ export function RubikApp() {
         </button>
         <button
           type="button"
-          onClick={rubik.reset}
-          disabled={rubik.solving}
+          onClick={openGallery}
+          disabled={busy}
           className="rounded-xl bg-[#141414] px-6 py-3 text-sm font-semibold text-white transition enabled:hover:bg-black disabled:opacity-30"
         >
           Esplora
@@ -128,6 +159,8 @@ export function RubikApp() {
           }
         />
       )}
+
+      {gallery && <Gallery tiles={gallery} onClose={closeGallery} />}
     </div>
   );
 }
