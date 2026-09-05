@@ -58,7 +58,8 @@ export function RubikApp() {
     const tiles: GalleryTile[] = [];
     for (const [id, url] of Object.entries(faceTex.textures)) {
       const from = rects[id];
-      if (url && from) tiles.push({ id, url, from });
+      const full = faceTex.getFullUrl(id) ?? url;
+      if (full && from) tiles.push({ id, url: full, from });
     }
     if (tiles.length === 0) return;
     view.setPaused(true);
