@@ -91,7 +91,16 @@ function loadFromStorage(): Record<string, string> {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     const saved = raw ? (JSON.parse(raw) as Record<string, string>) : {};
-    return { ...DEFAULT_TEXTURES, ...saved };
+    // Tiene solo le foto caricate dall'utente (data URL). I percorsi salvati
+    // in passato vengono ignorati: così un riordino/cambio dei default arriva
+    // sempre a chi ha già visitato il sito, invece di restare "congelato" in
+    // localStorage con la vecchia disposizione.
+    const uploads = Object.fromEntries(
+      Object.entries(saved).filter(
+        ([, v]) => typeof v === "string" && v.startsWith("data:"),
+      ),
+    );
+    return { ...DEFAULT_TEXTURES, ...uploads };
   } catch {
     return { ...DEFAULT_TEXTURES };
   }
