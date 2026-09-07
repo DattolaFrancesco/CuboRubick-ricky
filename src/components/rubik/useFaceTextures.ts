@@ -66,15 +66,15 @@ const FACE_FILES: Record<string, string> = {
   U6: "_D2A4022.jpg",
   U7: "_D2A4853.jpg",
   U8: "_D2A4245.jpg",
-  L0: "_D2A4433.jpg",
-  L1: "_D2A4902.jpg",
-  L2: "_D2A5508.jpg",
-  L3: "_D2A5520.jpg",
-  L4: "_D2A5530.jpg",
+  L0: "_D2A4902.jpg",
+  L1: "_D2A5508.jpg",
+  L2: "_D2A5520.jpg",
+  L3: "_D2A5530.jpg",
+  L4: "_D2A5535.jpg",
   L5: "_D2A5532.jpg",
-  L6: "_D2A5535.jpg",
-  L7: "_D2A5540.jpg",
-  L8: "_D2A5570.jpg",
+  L6: "_D2A5540.jpg",
+  L7: "_D2A5570.jpg",
+  L8: "_D2A4433.jpg",
 };
 
 const DEFAULT_TEXTURES: Record<string, string> = Object.fromEntries(
