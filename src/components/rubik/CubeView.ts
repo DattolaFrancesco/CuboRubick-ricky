@@ -147,13 +147,16 @@ export class CubeView {
     this.renderer.setClearAlpha(0);
     container.appendChild(this.renderer.domElement);
 
-    // sfondo trasparente: il cubo vive sopra la "carta" chiara della pagina
+    // sfondo trasparente: il cubo vive sopra la "carta" chiara della pagina.
+    // Molta luce ambientale (uniforme) + poca direzionale: così le foto sulle
+    // facce restano luminose e leggibili da ogni angolo, con giusto un filo di
+    // ombreggiatura per dare volume.
     this.scene.background = null;
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.35));
+    const key = new THREE.DirectionalLight(0xffffff, 0.55);
     key.position.set(6, 8, 4);
     this.scene.add(key);
-    const fill = new THREE.DirectionalLight(0xffffff, 0.4);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.25);
     fill.position.set(-5, -3, -6);
     this.scene.add(fill);
 
