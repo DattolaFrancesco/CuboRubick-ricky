@@ -151,12 +151,15 @@ export class CubeView {
     // Molta luce ambientale (uniforme) + poca direzionale: così le foto sulle
     // facce restano luminose e leggibili da ogni angolo, con giusto un filo di
     // ombreggiatura per dare volume.
+    // Gli sticker con foto sono materiali "unlit" (MeshBasicMaterial): mostrano
+    // la foto alla sua luminosità reale da ogni angolo. Le luci qui sotto
+    // servono solo a dare volume alla plastica nera del corpo.
     this.scene.background = null;
-    this.scene.add(new THREE.AmbientLight(0xffffff, 1.35));
-    const key = new THREE.DirectionalLight(0xffffff, 0.55);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+    const key = new THREE.DirectionalLight(0xffffff, 1.0);
     key.position.set(6, 8, 4);
     this.scene.add(key);
-    const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.4);
     fill.position.set(-5, -3, -6);
     this.scene.add(fill);
 
@@ -220,11 +223,8 @@ export class CubeView {
         const baseColor = COLOR_HEX[sticker.color];
         const mesh = new THREE.Mesh(
           stickerGeo,
-          new THREE.MeshStandardMaterial({
-            color: baseColor,
-            roughness: 0.5,
-            metalness: 0,
-          }),
+          // "unlit": la foto si vede sempre alla sua luminosità reale
+          new THREE.MeshBasicMaterial({ color: baseColor }),
         );
         mesh.position.set(
           n[0] * STICKER_OFFSET,
@@ -275,7 +275,7 @@ export class CubeView {
    */
   applyTextures(map: Record<string, string>) {
     for (const [id, mesh] of this.stickers) {
-      const mat = mesh.material as THREE.MeshStandardMaterial;
+      const mat = mesh.material as THREE.MeshBasicMaterial;
       const url = map[id];
       const current = this.stickerTextures.get(id);
 
